@@ -1,4 +1,4 @@
-module github.com/Null-nil/tendermint
+module github.com/tendermint/tendermint
 
 go 1.18
 
@@ -28,7 +28,6 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/tendermint/go-amino v0.15.1
-	github.com/tendermint/tendermint v0.0.0-00010101000000-000000000000
 	github.com/tendermint/tm-db v0.6.6
 	golang.org/x/crypto v0.1.0
 	golang.org/x/net v0.1.0
