@@ -4,12 +4,11 @@
 package secp256k1
 
 import (
+	"encoding/asn1"
 	"fmt"
+	secp256k1 "github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 	"math/big"
-	"strings"
-
-	secp256k1 "github.com/btcsuite/btcd/btcec/v2"
 
 	"github.com/tendermint/tendermint/crypto"
 )
@@ -24,11 +23,26 @@ var secp256k1halfN = new(big.Int).Rsh(secp256k1.S256().N, 1)
 // The returned signature will be of the form R || S (in lower-S form).
 func (privKey PrivKeySecp256k1) Sign(msg []byte) ([]byte, error) {
 	priv, _ := secp256k1.PrivKeyFromBytes(privKey[:])
-
 	sig := ecdsa.Sign(priv, crypto.Sha256(msg))
 	sigBytes := serializeSig(sig)
+	if sigBytes == nil {
+		return nil, fmt.Errorf("serialize sig error")
+	}
 	return sigBytes, nil
 }
+func DeSerializeDerEncoding(derSig []byte) ([]byte, []byte, error) {
+	var seq struct {
+		R *big.Int `asn1:"optional"`
+		S *big.Int `asn1:"optional"`
+	}
+	_, err := asn1.Unmarshal(derSig, &seq)
+	if err != nil {
+		return nil, nil, err
+	}
+	return seq.R.Bytes(), seq.S.Bytes(), nil
+}
+
+/*
 func DeSerializeDerEncoding(derSig []byte) ([]byte, []byte, error) {
 	if derSig[0] != 0x30 {
 		return nil, nil, fmt.Errorf("invalid der signature format: derSig[0]")
@@ -76,7 +90,7 @@ func DeSerializeDerEncoding(derSig []byte) ([]byte, []byte, error) {
 	}
 
 	return rBytes, sBytes, nil
-}
+}*/
 
 // VerifyBytes verifies a signature of the form R || S.
 // It rejects signatures which are not in lower-S form.
@@ -93,7 +107,10 @@ func (pubKey PubKeySecp256k1) VerifyBytes(msg []byte, sigStr []byte) bool {
 	// Reject malleable signatures. libsecp256k1 does this check but btcec doesn't.
 	// see: https://github.com/ethereum/go-ethereum/blob/f9401ae011ddf7f8d2d95020b7446c17f8d98dc1/crypto/signature_nocgo.go#L90-L93
 	sigSerialize := signature.Serialize()
-	_, SigS, _ := DeSerializeDerEncoding(sigSerialize)
+	_, SigS, err := DeSerializeDerEncoding(sigSerialize)
+	if err != nil {
+		return false
+	}
 	sigBigIntS := big.NewInt(0).SetBytes(SigS)
 	if sigBigIntS.Cmp(secp256k1halfN) > 0 {
 		return false
@@ -115,7 +132,12 @@ func signatureFromBytes(sigStr []byte) *ecdsa.Signature {
 // R, S are padded to 32 bytes respectively.
 func serializeSig(sig *ecdsa.Signature) []byte {
 	sigSerialize := sig.Serialize()
-	SigR, SigS, _ := DeSerializeDerEncoding(sigSerialize)
+
+	SigR, SigS, err := DeSerializeDerEncoding(sigSerialize)
+	if err != nil {
+		return nil
+	}
+
 	/*
 		sigBigIntS := big.NewInt(0).SetBytes(SigS)
 		rBytes := sig.R.Bytes()

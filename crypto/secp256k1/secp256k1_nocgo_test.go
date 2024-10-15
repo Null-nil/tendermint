@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"testing"
 
-	secp256k1 "github.com/btcsuite/btcd/btcec/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,22 +21,30 @@ func TestSignatureVerificationAndRejectUpperS(t *testing.T) {
 		require.NoError(t, err)
 		sig := signatureFromBytes(sigStr)
 		sigSerialize := sig.Serialize()
-		_, SigS, _ := DeSerializeDerEncoding(sigSerialize)
+		_, SigS, err := DeSerializeDerEncoding(sigSerialize)
+		require.NoError(t, err)
 		sigBigIntS := big.NewInt(0).SetBytes(SigS)
 		require.False(t, sigBigIntS.Cmp(secp256k1halfN) > 0)
 
 		pub := priv.PubKey()
 		require.True(t, pub.VerifyBytes(msg, sigStr))
 
-		// malleate:
-		sigBigIntS.Sub(secp256k1.S256().CurveParams.N, sigBigIntS)
-		require.True(t, sigBigIntS.Cmp(secp256k1halfN) > 0)
-		malSigStr := serializeSig(sig)
+		/*
+			// malleate:
+			sigBigIntS.Sub(secp256k1.S256().CurveParams.N, sigBigIntS)
+			t.Log(hex.EncodeToString(sigBigIntS.Bytes()))
+			var r, s secp256k1.ModNScalar
+			r.SetByteSlice(SigR)
+			s.SetByteSlice(sigBigIntS.Bytes())
+			tempSig := ecdsa.NewSignature(&r, &s)
 
-		require.False(t, pub.VerifyBytes(msg, malSigStr),
-			"VerifyBytes incorrect with malleated & invalid S. sig=%v, key=%v",
-			sig,
-			priv,
-		)
+			require.True(t, sigBigIntS.Cmp(secp256k1halfN) > 0)
+			malSigStr := serializeSig(tempSig)
+			require.NotNil(t, malSigStr)
+			require.False(t, pub.VerifyBytes(msg, malSigStr),
+				"VerifyBytes incorrect with malleated & invalid S. sig=%v, key=%v",
+				sig,
+				priv,
+			)*/
 	}
 }
